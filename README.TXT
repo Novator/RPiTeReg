@@ -32,18 +32,32 @@ Work period is constant. Rest period is variable to achive aim temperature.
 
 3. INSTALLATION IN RASPBIAN
 
-1) Make directrory with root user, for example:
+1) Make directory with root user, for example:
 
   mkdir /root/rpitereg
 
-2) Copy all files there
-3) Add a line to file /etc/rc.local:
+2) Copy all files to there
+3) Install screen
+
+  apt-get install screen
+
+4) Connect relay bindings to GPIO17 (pin 11) or GPIO27 (13)
+if you use 26-pin RPi B (ver 2) (change a python code if you
+use another realese of RPi)
+
+5) Connect thermo sensor to GPIO4 (pin 7) with pull-up resistor 4.7kOm
+
+6) To run and check the programm use one of these commands in terminal:
+
+  /root/rpitereg/rpitereg.sh
+  python /root/rpitereg/rpitereg.py
+  python2.7 /root/rpitereg/rpitereg.py
+
+7) Add a line to end of file /etc/rc.local, but above "exit 0":
 
   /root/rpitereg/rpitereg.rc.sh &
 
-4) Install screen
-
-  apt-get install screen
+The programm will autorun on each boot of RPi.
 
 
 4. USAGE
