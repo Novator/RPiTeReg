@@ -43,9 +43,9 @@ Work period is constant. Rest period is variable to achive aim temperature.
 
 4) Connect relay bindings to GPIO17 (pin 11) or GPIO27 (13)
 if you use 26-pin RPi B (ver 2) (change a python code if you
-use another realese of RPi)
+use another release of RPi)
 
-5) Connect thermo sensor to GPIO4 (pin 7) with pull-up resistor 4.7kOm
+5) Connect thermal sensor to GPIO4 (pin 7) with pull-up resistor 4.7kOm
 
 6) To run and check the programm use one of these commands in terminal:
 
@@ -66,14 +66,14 @@ Check parameters at /root/rpitereg/rpitereg.ini:
 
 aim_temp - aim temperature in Celsius (С)
 work_sec - constant work heater period (in seconds)
-rest_sec - start rest period when heater is off (utility will change it in interval)
+rest_sec - initial rest period (utility will be changing it for each iteration)
 corr_sec - rest correction for 1С degree delta
-sensor_dev - mask for finding thermo sensor, will be taken first
-temp_relax - offset when no rest correction (C)
-min_rest - minimal rest interval (C)
-max_rest - maximal rest interval (C)
-cold_zone - cold zone (C) below aim temp where rest period sets to minimal
-warm_zone - warm zone (C) upper aim temp where no heater work
+sensor_dev - mask for finding thermo sensor, will be taken a first
+temp_relax - no rest correction zone near aim temperature (C)
+min_rest - minimal allowable rest period (C)
+max_rest - maximal allowable rest period (C)
+cold_zone - cold zone (C) underlying aim temp when rest period forced to minimal
+warm_zone - warm zone (C) overlying aim temp where heater will be switched off
 
 To run and resume utility use /root/rpitereg/rpitereg.sh.
 
