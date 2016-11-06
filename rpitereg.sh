@@ -13,6 +13,6 @@ cd "$CURDIR"
 screen -x "rpitereg"
 if [ "$?" != "0" ]; then
   #screen -fn -h 1000 -S rpitereg {`which python` ./rpitereg.py | tee -a ./rpitereg.log}
-  screen -fn -h 1000 -S rpitereg `which python` ./rpitereg.py
+  screen -fn -h 1000 -S "rpitereg" `which python` ./rpitereg.py
 fi
 

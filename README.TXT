@@ -17,7 +17,17 @@ at home by thermo sensor. It works at smart home automatics and maintains
 temperature with control a relay.
 
 The utility does permanent iterations with work and rest period of heater.
-Work period is constant. Rest period is variable to achive aim temperature.
+Work and rest periods endlessly alternating one after another. Work period
+is constant. Rest period is variable through a calculating correction to achive
+assigned aim temperature.
+
+See the scheme of connection:
+
+-------
+|     |-------> thermo sensor
+| RPi |3.3V           220V
+|     |-------[relay]=====[heater]
+-------
 
 
 2. SYSTEM REQUIREMENTS
@@ -67,7 +77,7 @@ Check parameters at /root/rpitereg/rpitereg.ini:
 aim_temp - aim temperature in Celsius (С)
 work_sec - constant work heater period (in seconds)
 rest_sec - initial rest period (utility will be changing it for each iteration)
-corr_sec - rest correction for 1С degree delta
+corr_sec - rest correction step for 1(С) degree deviation from aim temperature
 sensor_dev - mask for finding thermo sensor, will be taken a first
 temp_relax - no rest correction zone near aim temperature (C)
 min_rest - minimal allowable rest period (C)
