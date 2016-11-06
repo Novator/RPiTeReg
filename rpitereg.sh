@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # The script for running RPi Home Thermo Regulator
-# 2012 (c) Michael Galyuk, free software, GNU GPLv2
+# 2016 (c) Michael Galyuk, free software, GNU GPLv2
 
 
 DIRFILE=`readlink -e "$0"`
