@@ -12,9 +12,9 @@ PinGpio17 = 11
 PinGpio27 = 13
 
 # Time periods (sec)
-AimTemp = 23.0
+AimTemp = 22.0
 WorkSec = 45
-RestSec = 50
+RestSec = 60
 CorrSec = 4
 MinRestSec = 10
 MaxRestSec = 150
@@ -139,6 +139,7 @@ try:
   print('GPIO control is active...')
   print('Press Q to stop and quit.')
   print('(screen: Ctrl+A,D - detach, Ctrl+A,K - kill, "screen -r" to resume)')
+  trace_show = False
   prev_temp = temp
   prev2_temp = None
   last_actual_rest_sec = None
@@ -148,7 +149,8 @@ try:
   time_sec = work_sec
   working = True
   while working:
-    #print('time_sec='+str(time_sec)+' heat_mode='+str(heat_mode))
+    if trace_show:
+      print('time_sec='+str(time_sec)+' heat_mode='+str(heat_mode))
     if heat_mode<=0:
       if time_sec>=curr_rest_sec:
         if heat_mode != -1:
@@ -229,8 +231,11 @@ try:
     try:
       #tty.setraw(sys.stdin.fileno())
       c = sys.stdin.read(1)
+      #print('key code: '+str(ord(c)))
       if (c=='q') or (c=='Q') or (c=='x') or (c=='X') or (ord(c)==185) or (ord(c)==153):
         working = False
+      elif (c=='t') or (c=='T') or (ord(c)==181) or (ord(c)==149) or (ord(c)==32):
+        trace_show = (not trace_show)
     #except IOError: pass
     except: pass
     if working:
