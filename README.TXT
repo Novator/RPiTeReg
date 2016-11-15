@@ -46,7 +46,7 @@ See the scheme of connection:
 
   mkdir /root/rpitereg
 
-2) Copy all files to there
+2) Copy all files (https://github.com/Novator/RPiTeReg/archive/master.zip) to there
 3) Install screen
 
   apt-get install screen
