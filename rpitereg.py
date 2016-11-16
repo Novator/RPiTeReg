@@ -29,6 +29,102 @@ ConfigIni = './rpitereg.ini'
 os.system('modprobe w1-gpio')
 os.system('modprobe w1-therm')
 
+# Current path
+# RU: Текущий путь
+ROOT_PATH = os.path.abspath('.')
+
+# ====================================================================
+# Log functions
+# RU: Функции логирования
+
+logfile = None
+flush_time = None
+curlogindex = None
+curlogsize = None
+log_prefix = './rpitereg'
+max_size = 102400
+flush_interval = 480
+
+# Get filename of log by index
+# RU: Взять имя файла лога по индексу
+def logname_by_index(index=1):
+  global log_prefix
+  filename = log_prefix
+  if (len(filename)>1) and (filename[0:2]=='./') and ROOT_PATH and (len(ROOT_PATH)>0):
+    filename = ROOT_PATH + filename[1:]
+  filename = os.path.abspath(filename+str(index)+'.log')
+  return filename
+
+# Close active log file
+# RU: Закрыть активный лог файл
+def closelog():
+  global logfile
+  if logfile:
+    logfile.close()
+    logfile = None
+
+# Write string to log file (and addrscreen)
+# RU: Записать строку в лог файл (и на экран)
+def logmes(mes, show=True):
+  global logfile, flush_time, curlogindex, curlogsize, log_prefix, max_size, flush_interval
+  if (not logfile) and (logfile != False):
+    if log_prefix and (len(log_prefix)>0):
+      try:
+        s1 = os.path.getsize(logname_by_index(1))
+      except:
+        s1 = None
+      try:
+        s2 = os.path.getsize(logname_by_index(2))
+      except:
+        s2 = None
+      curlogindex = 1
+      curlogsize = s1
+      if (s1 and ((s1>=max_size) or (s2 and (s2<s1)))):
+        curlogindex = 2
+        curlogsize = s2
+      try:
+        filename = logname_by_index(curlogindex)
+        logfile = open(filename, 'a')
+        if not curlogsize: curlogsize = 0
+        print('Logging to file: '+filename)
+      except:
+        logfile = False
+        print('Cannot open log-file: '+filename)
+    else:
+      logfile = False
+      print('Log-file is off.')
+  if logfile or show:
+    cur_time = datetime.datetime.now()
+    time_str = cur_time.strftime('%Y.%m.%d %H:%M:%S')
+    mes = str(mes)
+    if show: print('Log'+time_str[-11:]+': '+mes)
+    if logfile:
+      logline = time_str+': '+mes+'\n'
+      curlogsize += len(logline)
+      if curlogsize >= max_size:
+        curlogsize = 0
+        if curlogindex == 1:
+          curlogindex = 2
+        else:
+          curlogindex = 1
+        try:
+          filename = logname_by_index(curlogindex)
+          closelog()
+          logfile = open(filename, 'w')
+          print('Change logging to file: '+filename)
+        except:
+          logfile = False
+          print('Cannot change log-file: '+filename)
+          return
+      logfile.write(logline)
+      if (not flush_time) or (cur_time >= (flush_time + datetime.timedelta(0, flush_interval))):
+        logfile.flush()
+        flush_time = cur_time
+
+
+# ====================================================================
+# Setup functions
+# RU: Настроечные функции
 
 # Get parameter value from config
 # RU: Взять значение параметра из конфига
@@ -85,6 +181,7 @@ def read_config(cfg_ini, mtime=None):
       warm_zone = getparam('common', 'warm_zone', 'real')
       cold_zone = getparam('common', 'cold_zone', 'real')
       sensor_dev = getparam('common', 'sensor_dev')
+      flush_interval = getparam('common', 'flush_interval', 'int')
   # Set defaults if need
   if not aim_temp: aim_temp = AimTemp
   if not work_sec: work_sec = WorkSec
@@ -101,26 +198,25 @@ def read_config(cfg_ini, mtime=None):
   #mtime = time.localtime(mtime)
   mtime = datetime.datetime.fromtimestamp(mtime)
   time_str = mtime.strftime('%Y.%m.%d %H:%M:%S')
-  print('Config ['+cfg_ini+'] modified: '+time_str)
+  logmes('Config ['+cfg_ini+'] modified: '+time_str)
 
-  cur_time = datetime.datetime.now()
-  time_str = cur_time.strftime('%Y.%m.%d %H:%M:%S')
-  print('Work='+str(work_sec)+'s Rest='+str(rest_sec)+'s Corr='+str(corr_sec)+ \
+  logmes('Work='+str(work_sec)+'s Rest='+str(rest_sec)+'s Corr='+str(corr_sec)+ \
     's Relax='+str(temp_relax)+'s Min/Max=' +str(min_rest)+'/'+str(max_rest)+'s')
   # Detect first thermo sensor
   device_files = glob.glob(sensor_dev)
   if len(device_files)>0:
     device_file = device_files[0] + '/w1_slave'
-  print('Sensor: '+str(device_file)+' ('+sensor_dev+')')
-  print('AimTemp='+str(aim_temp)+'C Warm/ColdZone='+ \
-    str(warm_zone)+'/'+str(cold_zone)+' '+time_str)
+  logmes('Sensor: '+str(device_file)+' ('+sensor_dev+')')
+  logmes('AimTemp='+str(aim_temp)+'C Warm/ColdZone='+ \
+    str(warm_zone)+'/'+str(cold_zone))
 
 
-print('RPi Home Thermo Regulator 0.4')
-read_config(ConfigIni)
-
+# ====================================================================
+# GPIO working functions
+# RU: Функции работы с GPIO
 
 # Read raw data from thermo sensor
+# RU: Читать сырые данные с термо датчика
 def read_temp_raw():
   lines = None
   if device_file:
@@ -130,6 +226,7 @@ def read_temp_raw():
   return lines
 
 # Read and parse correct temperature
+# RU: Читать и распознать корректную температуру
 def read_temp():
   temp = None
   lines = read_temp_raw()
@@ -145,11 +242,18 @@ def read_temp():
       temp = float(temp_string) / 1000.0
   return temp
 
-# Set GPIO pins
+# Set state of GPIO pins
+# Задать состояние GPIO контактов
 def set_gpio(mode=0):
   GPIO.output(PinGpio17, mode)
   GPIO.output(PinGpio27, mode)
 
+
+# === Running the utility
+# === RU: Запуск утилиты
+
+print('RPi Home Thermo Regulator 0.5')
+read_config(ConfigIni)
 
 # Preparation for key capturing in terminal
 fd = sys.stdin.fileno()
@@ -162,7 +266,7 @@ fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
 try:
   temp = read_temp()
-  print('Temp='+str(temp)+'C')
+  logmes('===Start Temp='+str(temp)+'C')
 
   GPIO.setmode(GPIO.BOARD)
   GPIO.setup(PinGpio17, GPIO.OUT)
@@ -212,17 +316,12 @@ try:
               last_actual_rest_sec = curr_rest_sec
               curr_rest_sec0 = min_rest
             curr_rest_sec = min_rest
-            cur_time = datetime.datetime.now()
-            time_str = cur_time.strftime('%Y.%m.%d %H:%M:%S')
-            print(time_str+'  ColdZone! Temp='+str(temp)+'C Prev='+str(prev_temp)+ \
+            logmes('ColdZone! Temp='+str(temp)+'C Prev='+str(prev_temp)+ \
               ' [Min]Rest='+str(curr_rest_sec)+'s (LastRest='+str(last_actual_rest_sec)+')')
           elif temp>aim_temp+warm_zone:
-            print('555')
             heat_mode = -1
             time_sec = work_sec
-            cur_time = datetime.datetime.now()
-            time_str = cur_time.strftime('%Y.%m.%d %H:%M:%S')
-            print(time_str+'  WarmZone! Temp='+str(temp)+'C Prev='+str(prev_temp)+ \
+            logmes('WarmZone! Temp='+str(temp)+'C Prev='+str(prev_temp)+ \
               ' No Work (Rest='+str(curr_rest_sec)+'s)')
           else:
             if (last_actual_rest_sec != None):
@@ -251,9 +350,7 @@ try:
         else:
           curr_rest_sec = rest_sec
         if (curr_rest_sec0 != curr_rest_sec) or trace_show:
-          cur_time = datetime.datetime.now()
-          time_str = cur_time.strftime('%Y.%m.%d %H:%M:%S')
-          print(time_str+'  Temp='+str(temp)+'C Prev='+str(prev2_temp)+ \
+          logmes('Temp='+str(temp)+'C Prev='+str(prev2_temp)+ \
             'C RestDiff='+str(rest_diff)+'s Rest='+str(curr_rest_sec)+'s')
         end_time = datetime.datetime.now()
         time_diff = int(round((end_time - start_time).total_seconds()))
