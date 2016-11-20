@@ -23,7 +23,8 @@ SensorDev = '/sys/bus/w1/devices/28*'
 WarmZone = 1.5
 ColdZone = 1.5
 
-ConfigIni = './rpitereg.ini'
+ConfigIni1 = '/var/www/html/rpitereg.ini'
+ConfigIni2 = './rpitereg.ini'
 
 # Load OS modules for wire1
 os.system('modprobe w1-gpio')
@@ -31,7 +32,8 @@ os.system('modprobe w1-therm')
 
 # Current path
 # RU: Текущий путь
-ROOT_PATH = os.path.abspath('.')
+#LOG_PATH = os.path.abspath('.')
+LOG_PATH = '/var/www/html/'
 
 # ====================================================================
 # Log functions
@@ -50,8 +52,8 @@ flush_interval = 480
 def logname_by_index(index=1):
   global log_prefix
   filename = log_prefix
-  if (len(filename)>1) and (filename[0:2]=='./') and ROOT_PATH and (len(ROOT_PATH)>0):
-    filename = ROOT_PATH + filename[1:]
+  if (len(filename)>1) and (filename[0:2]=='./') and LOG_PATH and (len(LOG_PATH)>0):
+    filename = LOG_PATH + filename[1:]
   filename = os.path.abspath(filename+str(index)+'.log')
   return filename
 
@@ -63,7 +65,7 @@ def closelog():
     logfile.close()
     logfile = None
 
-# Write string to log file (and addrscreen)
+# Write string to log file (and to screen)
 # RU: Записать строку в лог файл (и на экран)
 def logmes(mes, show=True):
   global logfile, flush_time, curlogindex, curlogsize, log_prefix, max_size, flush_interval
@@ -159,18 +161,24 @@ def get_file_mod_time(filename):
 config = ConfigParser.SafeConfigParser()
 last_config_mtime = 0
 device_file = None
+work_cfg_ini = None
 
 # Try to read config parameters
-def read_config(cfg_ini, mtime=None):
-  global last_config_mtime, device_file
+def read_config(cfg_ini=None, mtime=None, def_set=False):
+  global last_config_mtime, device_file, work_cfg_ini
   global aim_temp, work_sec, rest_sec, corr_sec, temp_relax, min_rest, max_rest, \
     warm_zone, cold_zone, sensor_dev
+  res = False
+  if (cfg_ini==None):
+    cfg_ini = work_cfg_ini
   if (mtime==None):
     mtime = get_file_mod_time(cfg_ini)
   last_config_mtime = mtime
   if mtime>0:
     res = config.read(cfg_ini)
     if len(res):
+      res = True
+      work_cfg_ini = cfg_ini
       aim_temp = getparam('common', 'aim_temp', 'real')
       work_sec = getparam('common', 'work_sec', 'int')
       rest_sec = getparam('common', 'rest_sec', 'int')
@@ -182,33 +190,34 @@ def read_config(cfg_ini, mtime=None):
       cold_zone = getparam('common', 'cold_zone', 'real')
       sensor_dev = getparam('common', 'sensor_dev')
       flush_interval = getparam('common', 'flush_interval', 'int')
-  # Set defaults if need
-  if not aim_temp: aim_temp = AimTemp
-  if not work_sec: work_sec = WorkSec
-  if not rest_sec: rest_sec = RestSec
-  if not corr_sec: corr_sec = CorrSec
-  if not temp_relax: temp_relax = TempRelax
-  if not min_rest: min_rest = MinRestSec
-  if not max_rest: max_rest = MaxRestSec
-  if not warm_zone: warm_zone = WarmZone
-  if not cold_zone: cold_zone = ColdZone
-  if not sensor_dev: sensor_dev = SensorDev
-  # Show config parameters
-  #mtime = time.ctime(mtime)
-  #mtime = time.localtime(mtime)
-  mtime = datetime.datetime.fromtimestamp(mtime)
-  time_str = mtime.strftime('%Y.%m.%d %H:%M:%S')
-  logmes('Config ['+cfg_ini+'] modified: '+time_str)
-
-  logmes('Work='+str(work_sec)+'s Rest='+str(rest_sec)+'s Corr='+str(corr_sec)+ \
-    's Relax='+str(temp_relax)+'s Min/Max=' +str(min_rest)+'/'+str(max_rest)+'s')
-  # Detect first thermo sensor
-  device_files = glob.glob(sensor_dev)
-  if len(device_files)>0:
-    device_file = device_files[0] + '/w1_slave'
-  logmes('Sensor: '+str(device_file)+' ('+sensor_dev+')')
-  logmes('AimTemp='+str(aim_temp)+'C Warm/ColdZone='+ \
-    str(warm_zone)+'/'+str(cold_zone))
+  if res or def_set:
+    # Set defaults if need
+    if not aim_temp: aim_temp = AimTemp
+    if not work_sec: work_sec = WorkSec
+    if not rest_sec: rest_sec = RestSec
+    if not corr_sec: corr_sec = CorrSec
+    if not temp_relax: temp_relax = TempRelax
+    if not min_rest: min_rest = MinRestSec
+    if not max_rest: max_rest = MaxRestSec
+    if not warm_zone: warm_zone = WarmZone
+    if not cold_zone: cold_zone = ColdZone
+    if not sensor_dev: sensor_dev = SensorDev
+    # Show config parameters
+    #mtime = time.ctime(mtime)
+    #mtime = time.localtime(mtime)
+    mtime = datetime.datetime.fromtimestamp(mtime)
+    time_str = mtime.strftime('%Y.%m.%d %H:%M:%S')
+    logmes('---Config ['+cfg_ini+'] modified: '+time_str)
+    logmes('Work='+str(work_sec)+'s Rest='+str(rest_sec)+'s Corr='+str(corr_sec)+ \
+      's Relax='+str(temp_relax)+'s Min/Max=' +str(min_rest)+'/'+str(max_rest)+'s')
+    # Detect first thermo sensor
+    device_files = glob.glob(sensor_dev)
+    if len(device_files)>0:
+      device_file = device_files[0] + '/w1_slave'
+    logmes('Sensor: '+str(device_file)+' ('+sensor_dev+')')
+    logmes('AimTemp='+str(aim_temp)+'C Warm/ColdZone='+ \
+      str(warm_zone)+'/'+str(cold_zone))
+  return res
 
 
 # ====================================================================
@@ -253,7 +262,8 @@ def set_gpio(mode=0):
 # === RU: Запуск утилиты
 
 print('RPi Home Thermo Regulator 0.5')
-read_config(ConfigIni)
+if not read_config(ConfigIni1):
+  read_config(ConfigIni2, None, True)
 
 # Preparation for key capturing in terminal
 fd = sys.stdin.fileno()
@@ -293,6 +303,7 @@ try:
           set_gpio(1)
         heat_mode = 1
         time_sec = 0
+        need_calc = True
     elif time_sec>=(work_sec-10):
       time_diff = 0
       if need_calc:
@@ -303,10 +314,10 @@ try:
         rest_diff = None
         if temp and (temp>0) and (temp<65):
           need_calc = False
-          config_mtime = get_file_mod_time(ConfigIni)
-          if (last_config_mtime != config_mtime):
-            print('Reread config...')
-            read_config(ConfigIni, config_mtime)
+          if work_cfg_ini:
+            config_mtime = get_file_mod_time(work_cfg_ini)
+            if (last_config_mtime != config_mtime):
+              read_config(work_cfg_ini, config_mtime)
           if temp<aim_temp-cold_zone:
             if (heat_mode==1) or (heat_mode==5):
               heat_mode += 1
@@ -333,7 +344,7 @@ try:
             rest_diff = corr_sec * temp_diff
             if prev_temp:
               temp_step = temp - prev_temp
-              if (abs(temp_diff) < temp_relax) \
+              if (abs(temp_diff) <= temp_relax) \
               and (((rest_diff>0) and (temp_step<0)) \
               or ((rest_diff<0) and (temp_step>0))):
                 rest_diff = 0

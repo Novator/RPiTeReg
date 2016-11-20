@@ -84,8 +84,12 @@ min_rest - minimal allowable rest period (C)
 max_rest - maximal allowable rest period (C)
 cold_zone - cold zone (C) underlying aim temp when rest period forced to minimal
 warm_zone - warm zone (C) overlying aim temp where heater will be switched off
+flush_interval - interval in seconds forced a writing portion of log to file
 
 To run and resume utility use /root/rpitereg/rpitereg.sh.
+The utility automatically reload configuration file when you edit it
+and will use new parameterswithout necessity to restart the script.
+You can use ssh or http to rule parameters via controlling ini-file.
 
 
 5. GETTING HELP
