@@ -35,7 +35,7 @@ ict.dtd">
     }
   </script>
   <style type="text/css">
-    textarea { width: 98%; height: 360px; }
+    textarea { width: 98%; }
   </style>
 </head>
 <body>
@@ -70,7 +70,7 @@ ict.dtd">
   LogInd: <input type="text" name="logind" id="logind" size="2" maxlength="1" value="<?php echo $logind; ?>">
   </form>
   Last log file lines: <input type="button" value="more..." onClick="getData()"><br />
-  <textarea id="logtext" wrap="off" readonly></textarea>
+  <textarea id="logtext" rows="22" wrap="off" readonly></textarea>
   <script>
     getData()
   </script>
