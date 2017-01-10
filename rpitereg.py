@@ -4,10 +4,11 @@
 # RPi Home Thermo Regulator
 # 2016 (c) Michael Galyuk, GNU GPLv2
 
-import time, datetime, sys, fcntl, termios, os, glob, ConfigParser
+import time, datetime, sys, fcntl, termios, os, glob, ConfigParser, requests
 import RPi.GPIO as GPIO
 
 # GPIO constants
+PinGpio4  = 7
 PinGpio17 = 11
 PinGpio27 = 13
 
@@ -22,13 +23,15 @@ TempRelax = 0.5
 SensorDev = '/sys/bus/w1/devices/28*'
 WarmZone = 1.5
 ColdZone = 1.5
+SetparInt = 300
+TunnelWorkTime = 3600
 
 ConfigIni1 = '/var/www/html/rpitereg.ini'
 ConfigIni2 = './rpitereg.ini'
 
 # Load OS modules for wire1
-os.system('modprobe w1-gpio')
-os.system('modprobe w1-therm')
+#os.system('modprobe w1-gpio')
+#os.system('modprobe w1-therm')
 
 # Current path
 # RU: Текущий путь
@@ -46,6 +49,9 @@ curlogsize = None
 log_prefix = './rpitereg'
 max_size = 102400
 flush_interval = 480
+setpar_url = None
+setpar_interval = SetparInt
+
 
 # Get filename of log by index
 # RU: Взять имя файла лога по индексу
@@ -167,7 +173,7 @@ work_cfg_ini = None
 def read_config(cfg_ini=None, mtime=None, def_set=False):
   global last_config_mtime, device_file, work_cfg_ini
   global aim_temp, work_sec, rest_sec, corr_sec, temp_relax, min_rest, max_rest, \
-    warm_zone, cold_zone, sensor_dev
+    warm_zone, cold_zone, sensor_dev, setpar_url, setpar_interval
   res = False
   if (cfg_ini==None):
     cfg_ini = work_cfg_ini
@@ -190,6 +196,8 @@ def read_config(cfg_ini=None, mtime=None, def_set=False):
       cold_zone = getparam('common', 'cold_zone', 'real')
       sensor_dev = getparam('common', 'sensor_dev')
       flush_interval = getparam('common', 'flush_interval', 'int')
+      setpar_url = getparam('common', 'setpar_url')
+      setpar_interval = getparam('common', 'setpar_interval', 'int')
   if res or def_set:
     # Set defaults if need
     if not aim_temp: aim_temp = AimTemp
@@ -202,6 +210,7 @@ def read_config(cfg_ini=None, mtime=None, def_set=False):
     if not warm_zone: warm_zone = WarmZone
     if not cold_zone: cold_zone = ColdZone
     if not sensor_dev: sensor_dev = SensorDev
+    if not setpar_interval: setpar_interval = SetparInt
     # Show config parameters
     #mtime = time.ctime(mtime)
     #mtime = time.localtime(mtime)
@@ -215,9 +224,62 @@ def read_config(cfg_ini=None, mtime=None, def_set=False):
     if len(device_files)>0:
       device_file = device_files[0] + '/w1_slave'
     logmes('Sensor: '+str(device_file)+' ('+sensor_dev+')')
+    logmes('SetPar: URL="'+str(setpar_url)+'" Int='+str(setpar_interval)+'s')
     logmes('AimTemp='+str(aim_temp)+'C Warm/ColdZone='+ \
       str(warm_zone)+'/'+str(cold_zone))
   return res
+
+
+# ====================================================================
+# Remote setup
+# RU: Удалённая настройка
+
+last_setpar_get_time = None
+start_ssh_tunnel_time = None
+
+# Try to read setpar.txt from remote and update temp and up ssh-tunnel
+def process_setpar():
+  global aim_temp, setpar_url, setpar_interval, last_setpar_get_time, start_ssh_tunnel_time
+  if setpar_url:
+    cur_time = datetime.datetime.now()
+    if ((last_setpar_get_time is None) \
+    or (cur_time >= (last_setpar_get_time + datetime.timedelta(0, setpar_interval)))):
+      url = setpar_url
+      try:
+        req = requests.get(url+'txt')
+      except:
+        req = None
+      if req:
+        last_setpar_get_time = cur_time
+        body = req.content
+        body_len = len(body)
+        if (body_len>=4) and (body_len<=8):
+          sign = body[0:4]
+          temp = body[4:4]
+          logmes('---SetPar ['+str(sign)+'|'+str(temp)+']')
+          try:
+            req = requests.get(url+'php?clear=1')
+          except:
+            req = None
+          if (sign=='VVVV') or (sign=='TTTT'):
+            if temp:
+              val = 0
+              try:
+                val = float(temp)
+              except:
+                val = 0
+              if (val>0) and (val<=25):
+                aim_temp = val
+                logmes('AimTemp='+str(aim_temp)+'C')
+            if (sign=='VVVV'):
+              os.system('/root/rpitereg/tunnel/kill-tunnel.rc.sh')
+              os.system('/root/rpitereg/tunnel/open-tunnel.rc.sh &')
+              start_ssh_tunnel_time = cur_time
+    if (start_ssh_tunnel_time \
+    and (cur_time >= (start_ssh_tunnel_time + datetime.timedelta(0, TunnelWorkTime)))):
+      os.system('/root/rpitereg/tunnel/kill-tunnel.rc.sh')
+      start_ssh_tunnel_time = None
+      logmes('Tunnel is closed')
 
 
 # ====================================================================
@@ -282,6 +344,21 @@ try:
   GPIO.setup(PinGpio17, GPIO.OUT)
   GPIO.setup(PinGpio27, GPIO.OUT)
 
+  #os.system('modprobe -r w1-therm')
+  #os.system('modprobe -r w1-gpio')
+  #time.sleep(0.3)
+  #GPIO.setup(PinGpio4, GPIO.OUT)
+  #GPIO.output(PinGpio4, 0)
+  #time.sleep(1)
+  #GPIO.output(PinGpio4, 1)
+  #GPIO.cleanup()
+  #os.system('modprobe w1-gpio')
+  #os.system('modprobe w1-therm')
+  #time.sleep(1)
+  #GPIO.setmode(GPIO.BOARD)
+  #GPIO.setup(PinGpio17, GPIO.OUT)
+  #GPIO.setup(PinGpio27, GPIO.OUT)
+
   print('GPIO control is active...')
   print('Press Q to stop and quit.')
   print('(screen: Ctrl+A,D - detach, Ctrl+A,K - kill, "screen -r" to resume)')
@@ -304,11 +381,12 @@ try:
         heat_mode = 1
         time_sec = 0
         need_calc = True
-    elif time_sec>=(work_sec-10):
+    elif time_sec>=(work_sec-15):
       time_diff = 0
       if need_calc:
         start_time = datetime.datetime.now()
         temp = read_temp()
+        process_setpar()
         #print('==111Temp='+str(temp)+'C RestSec='+str(curr_rest_sec))
         curr_rest_sec0 = curr_rest_sec
         rest_diff = None
