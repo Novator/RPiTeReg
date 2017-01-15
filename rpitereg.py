@@ -255,7 +255,7 @@ def process_setpar():
         body_len = len(body)
         if (body_len>=4) and (body_len<=8):
           sign = body[0:4]
-          temp = body[4:4]
+          temp = body[4:body_len]
           logmes('---SetPar ['+str(sign)+'|'+str(temp)+']')
           try:
             req = requests.get(url+'php?clear=1')

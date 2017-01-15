@@ -23,7 +23,7 @@ assigned aim temperature.
 
 See the scheme of connection:
 
--------
+-------GPIO
 |     |-------> thermo sensor
 | RPi |3.3V           220V
 |     |-------[relay]=====[heater]
@@ -51,9 +51,9 @@ See the scheme of connection:
 
   apt-get install screen
 
-4) Connect relay bindings to GPIO17 (pin 11) or GPIO27 (13)
-if you use 26-pin RPi B (ver 2) (change a python code if you
-use another release of RPi)
+4) Connect relay bindings to GPIO17 (pin 11) or GPIO27 (13) if
+you use 26-pin RPi B ver 2. Change a python code if you use
+another release of RPi.
 
 5) Connect thermal sensor to GPIO4 (pin 7) with pull-up resistor 4.7kOm
 
@@ -88,7 +88,7 @@ flush_interval - interval in seconds forced a writing portion of log to file
 
 To run and resume utility use /root/rpitereg/rpitereg.sh.
 The utility automatically reload configuration file when you edit it
-and will use new parameterswithout necessity to restart the script.
+and will use new parameters without necessity to restart the script.
 You can use ssh or http to rule parameters via controlling ini-file.
 
 
