@@ -33,34 +33,38 @@ ConfigIni2 = './rpitereg.ini'
 #os.system('modprobe w1-gpio')
 #os.system('modprobe w1-therm')
 
-# Current path
-# RU: Текущий путь
-#LOG_PATH = os.path.abspath('.')
-LOG_PATH = '/var/www/html/'
+#Global setup parameters
+#[common]
+flush_time = None
+curlogindex = None
+curlogsize = None
+max_size = 102400
+flush_interval = 480
+#[log]
+log_prefix = 'rpitereg'
+log_path = '.'
+#[internet]
+setpar_url = None
+setpar_interval = SetparInt
+
+#Global variables
+logfile = None
 
 # ====================================================================
 # Log functions
 # RU: Функции логирования
 
-logfile = None
-flush_time = None
-curlogindex = None
-curlogsize = None
-log_prefix = './rpitereg'
-max_size = 102400
-flush_interval = 480
-setpar_url = None
-setpar_interval = SetparInt
-
-
 # Get filename of log by index
 # RU: Взять имя файла лога по индексу
 def logname_by_index(index=1):
-  global log_prefix
-  filename = log_prefix
-  if (len(filename)>1) and (filename[0:2]=='./') and LOG_PATH and (len(LOG_PATH)>0):
-    filename = LOG_PATH + filename[1:]
-  filename = os.path.abspath(filename+str(index)+'.log')
+  global log_prefix, log_path
+  filename = None
+  if log_prefix and (len(log_prefix)>0):
+    filename = log_prefix
+    if (not log_path) or (len(log_path)<=1):
+      log_path = os.path.abspath('.')
+    filename = log_path + '/' + filename
+    filename = os.path.abspath(filename+str(index)+'.log')
   return filename
 
 # Close active log file
@@ -97,10 +101,10 @@ def logmes(mes, show=True):
         print('Logging to file: '+filename)
       except:
         logfile = False
-        print('Cannot open log-file: '+filename)
+        print('Cannot open log-file: '+str(filename))
     else:
       logfile = False
-      print('Log-file is off.')
+      print('Logging to file is off.')
   if logfile or show:
     cur_time = datetime.datetime.now()
     time_str = cur_time.strftime('%Y.%m.%d %H:%M:%S')
@@ -171,9 +175,11 @@ work_cfg_ini = None
 
 # Try to read config parameters
 def read_config(cfg_ini=None, mtime=None, def_set=False):
-  global last_config_mtime, device_file, work_cfg_ini
-  global aim_temp, work_sec, rest_sec, corr_sec, temp_relax, min_rest, max_rest, \
-    warm_zone, cold_zone, sensor_dev, setpar_url, setpar_interval
+  global last_config_mtime, device_file, work_cfg_ini, \
+    aim_temp, work_sec, rest_sec, corr_sec, temp_relax, min_rest, max_rest, \
+    warm_zone, cold_zone, sensor_dev, setpar_url, setpar_interval, \
+    log_prefix, log_path, flush_interval
+
   res = False
   if (cfg_ini==None):
     cfg_ini = work_cfg_ini
@@ -195,9 +201,12 @@ def read_config(cfg_ini=None, mtime=None, def_set=False):
       warm_zone = getparam('common', 'warm_zone', 'real')
       cold_zone = getparam('common', 'cold_zone', 'real')
       sensor_dev = getparam('common', 'sensor_dev')
-      flush_interval = getparam('common', 'flush_interval', 'int')
-      setpar_url = getparam('common', 'setpar_url')
-      setpar_interval = getparam('common', 'setpar_interval', 'int')
+      log_prefix = getparam('log', 'log_prefix')
+      log_path = getparam('log', 'log_path')
+      flush_interval = getparam('log', 'flush_interval', 'int')
+      setpar_url = getparam('internet', 'setpar_url')
+      setpar_interval = getparam('internet', 'setpar_interval', 'int')
+
   if res or def_set:
     # Set defaults if need
     if not aim_temp: aim_temp = AimTemp
@@ -359,9 +368,10 @@ try:
   #GPIO.setup(PinGpio17, GPIO.OUT)
   #GPIO.setup(PinGpio27, GPIO.OUT)
 
-  print('GPIO control is active...')
+  print('GPIO control is captured.')
   print('Press Q to stop and quit.')
-  print('(screen: Ctrl+A,D - detach, Ctrl+A,K - kill, "screen -r" to resume)')
+  if (os.environ['TERM']=='screen'):
+    print('(screen: Ctrl+A,D - detach, Ctrl+A,K - kill, "screen -r" to resume)')
   trace_show = False
   prev_temp = temp
   prev2_temp = None
@@ -477,4 +487,5 @@ finally:
   fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
   GPIO.cleanup()
   sys.exit()
+  closelog()
 
