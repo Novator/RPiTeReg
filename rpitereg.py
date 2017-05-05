@@ -172,6 +172,30 @@ config = ConfigParser.SafeConfigParser()
 last_config_mtime = 0
 device_file = None
 work_cfg_ini = None
+aim_temp = 23.0
+shedulers = []
+
+def add_shed_line(line, to_clear=None):
+  global shedulers
+  res = False
+  if to_clear:
+    #print(shedulers)
+    del shedulers[:]
+  if line:
+    line = line.split(';')
+    if line and (len(line)>=3):
+      time_str = line[1]
+      time_str = time_str.split(':')
+      hour = int(time_str[0])
+      minute = int(time_str[1])
+      line[1] = hour*60 + minute
+      temp = float(line[2])
+      line[2] = temp
+      #print('Add shed string')
+      #print(line)
+      shedulers.append(line)
+    res = True
+  return res
 
 # Try to read config parameters
 def read_config(cfg_ini=None, mtime=None, def_set=False):
@@ -192,6 +216,15 @@ def read_config(cfg_ini=None, mtime=None, def_set=False):
       res = True
       work_cfg_ini = cfg_ini
       aim_temp = getparam('common', 'aim_temp', 'real')
+      sheduler1 = getparam('common', 'sheduler1')
+      sheduler2 = getparam('common', 'sheduler2')
+      sheduler3 = getparam('common', 'sheduler3')
+      sheduler4 = getparam('common', 'sheduler4')
+      sheduler5 = getparam('common', 'sheduler5')
+      sheduler6 = getparam('common', 'sheduler6')
+      sheduler7 = getparam('common', 'sheduler7')
+      sheduler8 = getparam('common', 'sheduler8')
+      sheduler9 = getparam('common', 'sheduler9')
       work_sec = getparam('common', 'work_sec', 'int')
       rest_sec = getparam('common', 'rest_sec', 'int')
       corr_sec = getparam('common', 'corr_sec', 'real')
@@ -206,6 +239,16 @@ def read_config(cfg_ini=None, mtime=None, def_set=False):
       flush_interval = getparam('log', 'flush_interval', 'int')
       setpar_url = getparam('internet', 'setpar_url')
       setpar_interval = getparam('internet', 'setpar_interval', 'int')
+
+      add_shed_line(sheduler1, True)
+      add_shed_line(sheduler2)
+      add_shed_line(sheduler3)
+      add_shed_line(sheduler4)
+      add_shed_line(sheduler5)
+      add_shed_line(sheduler6)
+      add_shed_line(sheduler7)
+      add_shed_line(sheduler8)
+      add_shed_line(sheduler9)
 
   if res or def_set:
     # Set defaults if need
@@ -234,10 +277,29 @@ def read_config(cfg_ini=None, mtime=None, def_set=False):
       device_file = device_files[0] + '/w1_slave'
     logmes('Sensor: '+str(device_file)+' ('+sensor_dev+')')
     logmes('SetPar: URL="'+str(setpar_url)+'" Int='+str(setpar_interval)+'s')
+    logmes('Shedulers: '+str(shedulers))
     logmes('AimTemp='+str(aim_temp)+'C Warm/ColdZone='+ \
       str(warm_zone)+'/'+str(cold_zone))
   return res
 
+def read_sheduler_temp(cur_time=None):
+  global shedulers
+  res = None
+  if len(shedulers)>0:
+    if not cur_time:
+      cur_time = datetime.datetime.now()
+    day = str(cur_time.weekday()+1)
+    time = cur_time.hour*60 + cur_time.minute
+    aim_temp_shed = None
+    for line in shedulers:
+      s_days = line[0]
+      s_time = line[1]
+      s_temp = line[2]
+      if (day in s_days) and (time>=s_time):
+        res = s_temp
+      elif res:
+        break
+  return res
 
 # ====================================================================
 # Remote setup
@@ -395,6 +457,10 @@ try:
       time_diff = 0
       if need_calc:
         start_time = datetime.datetime.now()
+        aim_temp_new = read_sheduler_temp(start_time)
+        if aim_temp_new and (aim_temp != aim_temp_new):
+          aim_temp = aim_temp_new
+          logmes('Sheduler AimTemp='+str(aim_temp)+'C')
         temp = read_temp()
         process_setpar()
         #print('==111Temp='+str(temp)+'C RestSec='+str(curr_rest_sec))
