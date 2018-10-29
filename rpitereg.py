@@ -109,7 +109,7 @@ def logmes(mes, show=True):
     cur_time = datetime.datetime.now()
     time_str = cur_time.strftime('%Y.%m.%d %H:%M:%S')
     mes = str(mes)
-    if show: print('Log'+time_str[-11:]+': '+mes)
+    if show: print('Log'+time_str[-14:]+': '+mes)
     if logfile:
       logline = time_str+': '+mes+'\n'
       curlogsize += len(logline)
@@ -288,7 +288,7 @@ def read_sheduler_temp(cur_time=None):
   if len(shedulers)>0:
     if not cur_time:
       cur_time = datetime.datetime.now()
-    day = str(cur_time.weekday()+1)
+    day = str(cur_time.weekday()+1)  #1..7
     time = cur_time.hour*60 + cur_time.minute
     aim_temp_shed = None
     for line in shedulers:
@@ -297,6 +297,7 @@ def read_sheduler_temp(cur_time=None):
       s_temp = line[2]
       if (day in s_days) and (time>=s_time):
         res = s_temp
+        #logmes('read_shed res= '+str(res)+' ('+str(line)+')')
       elif res:
         break
   return res
@@ -311,7 +312,7 @@ start_ssh_tunnel_time = None
 # Try to read setpar.txt from remote and update temp and up ssh-tunnel
 def process_setpar():
   global aim_temp, setpar_url, setpar_interval, last_setpar_get_time, start_ssh_tunnel_time
-  if setpar_url:
+  if setpar_url and (len(setpar_url)>0):
     cur_time = datetime.datetime.now()
     if ((last_setpar_get_time is None) \
     or (cur_time >= (last_setpar_get_time + datetime.timedelta(0, setpar_interval)))):
@@ -387,8 +388,8 @@ def read_temp():
 # Set state of GPIO pins
 # Задать состояние GPIO контактов
 def set_gpio(mode=0):
-  GPIO.output(PinGpio17, mode)
   GPIO.output(PinGpio27, mode)
+  GPIO.output(PinGpio17, mode)
 
 
 # === Running the utility
@@ -412,8 +413,8 @@ try:
   logmes('===Start Temp='+str(temp)+'C')
 
   GPIO.setmode(GPIO.BOARD)
-  GPIO.setup(PinGpio17, GPIO.OUT)
   GPIO.setup(PinGpio27, GPIO.OUT)
+  GPIO.setup(PinGpio17, GPIO.OUT)
 
   #os.system('modprobe -r w1-therm')
   #os.system('modprobe -r w1-gpio')
@@ -472,6 +473,7 @@ try:
             config_mtime = get_file_mod_time(work_cfg_ini)
             if (last_config_mtime != config_mtime):
               read_config(work_cfg_ini, config_mtime)
+              need_calc = True
           if temp<aim_temp-cold_zone:
             if (heat_mode==1) or (heat_mode==5):
               heat_mode += 1
