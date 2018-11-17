@@ -179,7 +179,6 @@ def add_shed_line(line, to_clear=None):
   global shedulers
   res = False
   if to_clear:
-    #print(shedulers)
     del shedulers[:]
   if line:
     line = line.split(';')
@@ -197,6 +196,12 @@ def add_shed_line(line, to_clear=None):
     res = True
   return res
 
+# Clear all config options in the memory
+def clear_config_options(config):
+  for section in config.sections():
+    for option in config.options(section):
+      config.remove_option(section, option)
+
 # Try to read config parameters
 def read_config(cfg_ini=None, mtime=None, def_set=False):
   global last_config_mtime, device_file, work_cfg_ini, \
@@ -211,6 +216,7 @@ def read_config(cfg_ini=None, mtime=None, def_set=False):
     mtime = get_file_mod_time(cfg_ini)
   last_config_mtime = mtime
   if mtime>0:
+    clear_config_options(config)
     res = config.read(cfg_ini)
     if len(res):
       res = True
