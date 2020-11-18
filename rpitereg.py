@@ -173,6 +173,7 @@ last_config_mtime = 0
 device_file = None
 work_cfg_ini = None
 aim_temp = 23.0
+sheduler_mode = 1
 shedulers = []
 
 def add_shed_line(line, to_clear=None):
@@ -205,9 +206,9 @@ def clear_config_options(config):
 # Try to read config parameters
 def read_config(cfg_ini=None, mtime=None, def_set=False):
   global last_config_mtime, device_file, work_cfg_ini, \
-    aim_temp, work_sec, rest_sec, corr_sec, temp_relax, min_rest, max_rest, \
-    warm_zone, cold_zone, sensor_dev, setpar_url, setpar_interval, \
-    log_prefix, log_path, flush_interval
+    aim_temp, sheduler_mode, work_sec, rest_sec, corr_sec, temp_relax, \
+    min_rest, max_rest, warm_zone, cold_zone, sensor_dev, setpar_url, \
+    setpar_interval, log_prefix, log_path, flush_interval
 
   res = False
   if (cfg_ini==None):
@@ -222,6 +223,7 @@ def read_config(cfg_ini=None, mtime=None, def_set=False):
       res = True
       work_cfg_ini = cfg_ini
       aim_temp = getparam('common', 'aim_temp', 'real')
+      sheduler_mode = getparam('common', 'sheduler_mode', 'int')
       sheduler1 = getparam('common', 'sheduler1')
       sheduler2 = getparam('common', 'sheduler2')
       sheduler3 = getparam('common', 'sheduler3')
@@ -259,6 +261,7 @@ def read_config(cfg_ini=None, mtime=None, def_set=False):
   if res or def_set:
     # Set defaults if need
     if not aim_temp: aim_temp = AimTemp
+    #if not sheduler_mode: sheduler_mode = 1
     if not work_sec: work_sec = WorkSec
     if not rest_sec: rest_sec = RestSec
     if not corr_sec: corr_sec = CorrSec
@@ -283,9 +286,10 @@ def read_config(cfg_ini=None, mtime=None, def_set=False):
       device_file = device_files[0] + '/w1_slave'
     logmes('Sensor: '+str(device_file)+' ('+sensor_dev+')')
     logmes('SetPar: URL="'+str(setpar_url)+'" Int='+str(setpar_interval)+'s')
-    logmes('Shedulers: '+str(shedulers))
+    if sheduler_mode>0:
+      logmes('Shedulers: '+str(shedulers))
     logmes('AimTemp='+str(aim_temp)+'C Warm/ColdZone='+ \
-      str(warm_zone)+'/'+str(cold_zone))
+      str(warm_zone)+'/'+str(cold_zone)+' Sheduler_mode='+str(sheduler_mode))
   return res
 
 def read_sheduler_temp(cur_time=None):
@@ -464,10 +468,11 @@ try:
       time_diff = 0
       if need_calc:
         start_time = datetime.datetime.now()
-        aim_temp_new = read_sheduler_temp(start_time)
-        if aim_temp_new and (aim_temp != aim_temp_new):
-          aim_temp = aim_temp_new
-          logmes('Sheduler AimTemp='+str(aim_temp)+'C')
+        if sheduler_mode>0:
+          aim_temp_new = read_sheduler_temp(start_time)
+          if aim_temp_new and ((aim_temp != aim_temp_new) or (sheduler_mode>1)):
+            aim_temp = aim_temp_new
+            logmes('Sheduler AimTemp='+str(aim_temp)+'C')
         temp = read_temp()
         process_setpar()
         #print('==111Temp='+str(temp)+'C RestSec='+str(curr_rest_sec))
